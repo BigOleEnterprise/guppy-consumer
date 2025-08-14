@@ -141,3 +141,4 @@ Thumbs.db
 # uv
 .uv/
 uv.lock
+data_examples/
