@@ -12,7 +12,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter(tags=["Core Operations"])
 
 class UploadResponse(BaseModel):
-    """Standardized upload response model"""
+    """what we send back when someone uploads a csv"""
     status: str
     message: str
     bank_type: str
@@ -20,14 +20,14 @@ class UploadResponse(BaseModel):
     processing_time_ms: int
 
 class HealthResponse(BaseModel):
-    """Health check response model"""
+    """health check response format"""
     status: str
     mongodb_connected: bool
     collections_accessible: bool
     version: str = "0.1.0"
 
 async def get_processing_service() -> RawProcessingService:
-    """Dependency injection for processing service"""
+    """get the processing service when we need it"""
     return RawProcessingService(mongodb_service)
 
 @router.post("/v1/upload/", response_model=UploadResponse)
@@ -36,15 +36,15 @@ async def upload_csv(
     processing_service: RawProcessingService = Depends(get_processing_service)
 ) -> UploadResponse:
     """
-    Enterprise-grade CSV upload endpoint with comprehensive processing pipeline:
-    1. File validation
-    2. Bank type detection  
-    3. CSV parsing with validation
-    4. Duplicate detection
-    5. Batch insertion to MongoDB
+    main endpoint that takes a csv and does all the processing:
+    1. make sure the file is good
+    2. figure out if its amex or wells fargo
+    3. parse the csv and validate data
+    4. check for duplicates
+    5. insert into mongo
     """
     
-    # Input validation
+    # basic file checks first
     if not file.filename:
         raise HTTPException(status_code=400, detail="No file provided")
     
@@ -54,21 +54,21 @@ async def upload_csv(
     logger.info(f"Processing CSV upload: {file.filename}")
     
     try:
-        # Read and parse CSV
+        # read the csv file
         contents = await file.read()
         
-        # Validate file size (prevent memory issues)
+        # dont let huge files crash the server
         if len(contents) > 50 * 1024 * 1024:  # 50MB limit
             raise HTTPException(
                 status_code=413, 
                 detail="File too large. Maximum size is 50MB"
             )
         
-        # Parse CSV with pandas
+        # try to parse the csv with pandas
         try:
             df = pd.read_csv(io.StringIO(contents.decode('utf-8')))
         except UnicodeDecodeError:
-            # Try with different encodings
+            # if utf-8 fails try latin-1
             try:
                 df = pd.read_csv(io.StringIO(contents.decode('latin-1')))
             except Exception as e:
@@ -82,7 +82,7 @@ async def upload_csv(
                 detail=f"Invalid CSV format: {str(e)}"
             )
         
-        # Validate CSV has data
+        # make sure csv isnt empty
         if df.empty:
             raise HTTPException(
                 status_code=400,
@@ -91,10 +91,10 @@ async def upload_csv(
         
         logger.info(f"CSV loaded successfully: {len(df)} rows, {len(df.columns)} columns")
         
-        # Process CSV through enterprise pipeline
+        # run the csv through our processing pipeline
         result: ProcessingResult = await processing_service.process_csv(df)
         
-        # Generate response based on processing result
+        # figure out what to send back based on what happened
         if result.parsing_successful and result.insertion_result.total_inserted > 0:
             return UploadResponse(
                 status="success",
@@ -145,7 +145,7 @@ async def upload_csv(
             )
             
     except HTTPException:
-        # Re-raise HTTP exceptions
+        # let http exceptions bubble up
         raise
     except Exception as e:
         logger.error(f"Unexpected error processing {file.filename}: {str(e)}")
@@ -157,17 +157,17 @@ async def upload_csv(
 @router.get("/health", response_model=HealthResponse)
 async def health_check() -> HealthResponse:
     """
-    Comprehensive health check endpoint for monitoring and alerting
+    check if everything is working properly
     """
     try:
-        # Check MongoDB connection
+        # see if mongo is up
         mongodb_healthy = await mongodb_service.health_check()
         
-        # Check collection accessibility
+        # make sure we can actually use the collections
         collections_accessible = False
         if mongodb_healthy:
             try:
-                # Try to access both collections
+                # try to count docs in both collections
                 amex_count = await mongodb_service.amex_collection.count_documents({})
                 wells_count = await mongodb_service.wells_collection.count_documents({})
                 collections_accessible = True
@@ -196,7 +196,7 @@ async def get_system_stats(
     processing_service: RawProcessingService = Depends(get_processing_service)
 ) -> Dict[str, Any]:
     """
-    System statistics endpoint for operational monitoring
+    get some stats about the system
     """
     try:
         stats = await processing_service.get_processing_summary()

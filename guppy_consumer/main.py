@@ -7,7 +7,7 @@ from guppy_consumer.api.query_endpoints import query_router
 from guppy_consumer.api.admin_endpoints import admin_router
 from guppy_consumer.services.mongodb_service import mongodb_service
 
-# Configure logging
+# setup logging so we can see whats happening
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
@@ -16,8 +16,8 @@ logger = logging.getLogger(__name__)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Application lifespan management for startup/shutdown events"""
-    # Startup
+    """handle startup and shutdown stuff for the app"""
+    # startup stuff
     logger.info("Starting Guppy Consumer service...")
     try:
         await mongodb_service.connect()
@@ -28,7 +28,7 @@ async def lifespan(app: FastAPI):
     
     yield
     
-    # Shutdown
+    # shutdown stuff
     logger.info("Shutting down Guppy Consumer service...")
     await mongodb_service.disconnect()
     logger.info("Application shutdown completed")
@@ -73,7 +73,7 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://localhost:8501"],  # Added Streamlit
+    allow_origins=["http://localhost:5173", "http://localhost:8501"],  # react and streamlit ports
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

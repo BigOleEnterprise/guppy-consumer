@@ -6,16 +6,16 @@ from ..models.raw import AmexRawTransaction
 class AmexParser(BaseParser):
     
     def can_parse(self, df: pd.DataFrame) -> bool:
-        """Check if DataFrame matches Amex CSV format"""
+        """check if this csv looks like an amex export"""
         expected_columns = {
             'Date', 'Description', 'Card Member', 'Account #', 
             'Amount', 'Extended Details', 'Reference', 'Category'
         }
         
-        # Check if has headers and contains key Amex columns
+        # check for amex specific headers
         if len(df.columns) >= 10:  # Amex has 13 columns
             column_set = set(df.columns)
-            # Look for unique Amex identifiers
+            # look for stuff that only amex has
             return 'Card Member' in column_set and 'Reference' in column_set
         
         return False
@@ -24,7 +24,7 @@ class AmexParser(BaseParser):
         return BankType.AMEX
     
     def parse_raw(self, df: pd.DataFrame) -> List[AmexRawTransaction]:
-        """Parse Amex CSV to AmexRawTransaction Pydantic models"""
+        """turn amex csv rows into our transaction objects"""
         transactions = []
         
         for _, row in df.iterrows():
@@ -46,7 +46,7 @@ class AmexParser(BaseParser):
                 )
                 transactions.append(transaction)
             except Exception as e:
-                # Log the error and skip this row
+                # skip bad rows but keep going
                 print(f"Error parsing Amex row: {e}")
                 continue
         

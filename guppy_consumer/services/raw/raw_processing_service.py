@@ -9,7 +9,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 class ProcessingResult(BaseModel):
-    """Comprehensive result for CSV processing pipeline"""
+    """all the info about how csv processing went"""
     bank_type: str
     bank_detected: bool
     parsing_successful: bool
@@ -19,8 +19,8 @@ class ProcessingResult(BaseModel):
 
 class RawProcessingService:
     """
-    High-level orchestrator service that combines:
-    Bank detection → Parsing → Duplicate filtering → Bulk insertion
+    main service that coordinates everything:
+    bank detection → parsing → duplicate checking → bulk insert
     """
     
     def __init__(self, mongodb_service):
@@ -30,17 +30,17 @@ class RawProcessingService:
     
     async def process_csv(self, df: pd.DataFrame) -> ProcessingResult:
         """
-        Complete CSV processing pipeline:
-        1. Detect bank type
-        2. Parse CSV to Pydantic models
-        3. Bulk insert with duplicate detection
+        full csv processing pipeline:
+        1. figure out what bank this is
+        2. parse csv into our objects
+        3. bulk insert with duplicate checking
         """
         logger.info("=== STARTING CSV PROCESSING PIPELINE ===")
         logger.info(f"CSV contains {len(df)} rows and {len(df.columns)} columns")
         logger.info(f"CSV columns: {list(df.columns)}")
         
         try:
-            # Step 1: Bank Detection
+            # step 1: bank detection
             logger.info("Step 1: Detecting bank type...")
             bank_type = self.bank_detector.detect_bank_type(df)
             
@@ -63,7 +63,7 @@ class RawProcessingService:
             
             logger.info(f"Detected bank type: {bank_type.value}")
             
-            # Step 2: Parse CSV
+            # step 2: parse csv
             logger.info("Step 2: Parsing CSV with bank-specific parser...")
             parser = self.bank_detector.get_parser(df)
             transactions = parser.parse_raw(df)
@@ -87,7 +87,7 @@ class RawProcessingService:
             
             logger.info(f"Successfully parsed {len(transactions)} transactions")
             
-            # Step 3: Bulk insertion with duplicate detection
+            # step 3: bulk insert with duplicate checking
             logger.info("Step 3: Starting bulk insertion with duplicate detection...")
             insertion_result = await self.insertion_service.bulk_insert_transactions(
                 transactions, bank_type.value
@@ -123,7 +123,7 @@ class RawProcessingService:
             )
     
     async def get_processing_summary(self) -> dict:
-        """Get summary statistics across all collections"""
+        """get summary stats for all collections"""
         try:
             amex_stats = await self.insertion_service.get_collection_stats("amex")
             wells_stats = await self.insertion_service.get_collection_stats("wells_fargo")

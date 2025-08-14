@@ -8,15 +8,15 @@ query_router = APIRouter(tags=["Data Query"])
 
 @query_router.get("/amex/sample")
 async def get_amex_sample(limit: int = Query(default=3, le=10)) -> Dict[str, Any]:
-    """Get sample Amex transactions to inspect data types"""
+    """grab some amex transactions to see what the data looks like"""
     try:
         collection = mongodb_service.amex_collection
         
-        # Get sample documents
+        # get some docs from the collection
         cursor = collection.find({}).limit(limit)
         documents = await cursor.to_list(length=limit)
         
-        # Convert ObjectId to string for JSON serialization
+        # convert mongo ids to strings so they can be json serialized
         for doc in documents:
             if "_id" in doc:
                 doc["_id"] = str(doc["_id"])
@@ -36,7 +36,7 @@ async def get_amex_sample(limit: int = Query(default=3, le=10)) -> Dict[str, Any
 
 @query_router.get("/wells/sample")
 async def get_wells_sample(limit: int = Query(default=3, le=10)) -> Dict[str, Any]:
-    """Get sample Wells Fargo transactions to inspect data types"""
+    """grab some wells fargo transactions to see what the data looks like"""
     try:
         collection = mongodb_service.wells_collection
         
@@ -62,7 +62,7 @@ async def get_wells_sample(limit: int = Query(default=3, le=10)) -> Dict[str, An
 
 @query_router.get("/collections/stats")
 async def get_all_collection_stats() -> Dict[str, Any]:
-    """Get detailed stats for both collections"""
+    """get some basic stats about both collections"""
     try:
         amex_count = await mongodb_service.amex_collection.count_documents({})
         wells_count = await mongodb_service.wells_collection.count_documents({})

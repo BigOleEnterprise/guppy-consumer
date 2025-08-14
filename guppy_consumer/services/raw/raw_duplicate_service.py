@@ -7,7 +7,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 class RawDuplicateService:
-    """Service for detecting and filtering duplicate raw transactions"""
+    """finds and filters out duplicate transactions"""
     
     def __init__(self, mongodb_service):
         self.mongodb_service = mongodb_service
@@ -17,21 +17,21 @@ class RawDuplicateService:
         transactions: List[Union[AmexRawTransaction, WellsRawTransaction]],
         bank_type: str
     ) -> List[Union[AmexRawTransaction, WellsRawTransaction]]:
-        """Filter out duplicate transactions using batch duplicate detection"""
+        """remove duplicate transactions using batch checking"""
         
         if not transactions:
             return []
         
-        # Step 1: Add hashes to all transactions
+        # step 1: add hashes to all transactions
         transactions_with_hashes = HashService.add_hashes_to_transactions(transactions)
         
-        # Step 2: Extract all hashes for batch query
+        # step 2: get all the hashes for batch lookup
         hashes = [t.raw_hash for t in transactions_with_hashes]
         
-        # Step 3: Single batch query to find existing hashes
+        # step 3: check which hashes already exist in db
         existing_hashes = await self._get_existing_hashes(hashes, bank_type)
         
-        # Step 4: Filter out transactions with existing hashes
+        # step 4: only keep transactions we haven't seen before
         new_transactions = [
             t for t in transactions_with_hashes 
             if t.raw_hash not in existing_hashes
@@ -46,14 +46,14 @@ class RawDuplicateService:
         return new_transactions
     
     async def _get_existing_hashes(self, hashes: List[str], bank_type: str) -> Set[str]:
-        """Query database for existing hashes in a single batch operation"""
+        """check db for existing hashes all at once"""
         try:
             collection = self.mongodb_service.get_collection(bank_type)
             
-            # Single query to find all existing hashes
+            # one query to find all existing hashes
             cursor = collection.find(
                 {"raw_hash": {"$in": hashes}},
-                {"raw_hash": 1, "_id": 0}  # Only return raw_hash field
+                {"raw_hash": 1, "_id": 0}  # only need the hash field
             )
             
             existing_docs = await cursor.to_list(length=None)
@@ -63,11 +63,11 @@ class RawDuplicateService:
             
         except Exception as e:
             logger.error(f"Error checking for duplicate hashes: {e}")
-            # On error, assume no duplicates to avoid data loss
+            # if error, assume no duplicates so we dont lose data
             return set()
     
     async def check_single_duplicate(self, transaction_hash: str, bank_type: str) -> bool:
-        """Check if a single transaction hash exists (for debugging/testing)"""
+        """check if one transaction hash exists (for debugging)"""
         try:
             collection = self.mongodb_service.get_collection(bank_type)
             result = await collection.find_one({"raw_hash": transaction_hash})

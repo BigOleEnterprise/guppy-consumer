@@ -8,7 +8,7 @@ from .wells_fargo import WellsFargoParser
 logger = logging.getLogger(__name__)
 
 class BankDetector:
-    """Factory class to detect bank type and return appropriate parser"""
+    """figures out what kind of csv we got and gets the right parser for it"""
     
     def __init__(self):
         self.parsers = [
@@ -17,7 +17,7 @@ class BankDetector:
         ]
     
     def detect_bank_type(self, df: pd.DataFrame) -> BankType:
-        """Detect which bank format the CSV matches"""
+        """figure out what kind of bank csv this is"""
         logger.debug(f"Checking CSV format with {len(df.columns)} columns: {list(df.columns)}")
         
         for parser in self.parsers:
@@ -33,7 +33,7 @@ class BankDetector:
         return BankType.UNKNOWN
     
     def get_parser(self, df: pd.DataFrame) -> Optional[BaseParser]:
-        """Get the appropriate parser for the CSV format"""
+        """get the parser that knows how to handle this csv"""
         for parser in self.parsers:
             if parser.can_parse(df):
                 return parser

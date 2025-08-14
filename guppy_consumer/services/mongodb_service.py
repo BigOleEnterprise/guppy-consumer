@@ -6,7 +6,7 @@ from ..config.settings import settings
 logger = logging.getLogger(__name__)
 
 class MongoDBService:
-    """MongoDB service for raw transaction operations"""
+    """handles all our mongo database stuff"""
     
     def __init__(self):
         self.client: Optional[AsyncIOMotorClient] = None
@@ -15,16 +15,16 @@ class MongoDBService:
         self.wells_collection: Optional[AsyncIOMotorCollection] = None
     
     async def connect(self) -> None:
-        """Establish MongoDB connection and setup collections"""
+        """connect to mongo and set up our collections"""
         try:
             self.client = AsyncIOMotorClient(settings.mongodb_url)
             self.database = self.client[settings.database_name]
             
-            # Get collection references
+            # get references to our collections
             self.amex_collection = self.database[settings.amex_collection]
             self.wells_collection = self.database[settings.wells_collection]
             
-            # Create indexes for performance
+            # create indexes so queries are fast
             await self._create_indexes()
             
             logger.info("MongoDB connection established successfully")
@@ -34,27 +34,27 @@ class MongoDBService:
             raise
     
     async def disconnect(self) -> None:
-        """Close MongoDB connection"""
+        """close the mongo connection"""
         if self.client:
             self.client.close()
             logger.info("MongoDB connection closed")
     
     async def _create_indexes(self) -> None:
-        """Create database indexes for optimal performance"""
+        """create indexes to make queries fast"""
         try:
-            # Index on raw_hash for duplicate detection
+            # index on hash so we can find duplicates fast
             await self.amex_collection.create_index("raw_hash", unique=True, sparse=True)
             await self.wells_collection.create_index("raw_hash", unique=True, sparse=True)
             
-            # Index on created_at for chronological queries
+            # index on date so we can sort by time
             await self.amex_collection.create_index("created_at")
             await self.wells_collection.create_index("created_at")
             
-            # Amex-specific indexes
+            # indexes just for amex
             await self.amex_collection.create_index("reference")  # Amex reference field
             await self.amex_collection.create_index("date")
             
-            # Wells Fargo-specific indexes  
+            # indexes just for wells  
             await self.wells_collection.create_index("date")
             
             logger.info("Database indexes created successfully")
@@ -63,7 +63,7 @@ class MongoDBService:
             logger.warning(f"Index creation failed (may already exist): {e}")
     
     def get_collection(self, bank_type: str) -> AsyncIOMotorCollection:
-        """Get appropriate collection based on bank type"""
+        """get the right collection for this bank"""
         if bank_type == "amex":
             return self.amex_collection
         elif bank_type == "wells_fargo":
@@ -72,7 +72,7 @@ class MongoDBService:
             raise ValueError(f"Unknown bank type: {bank_type}")
     
     async def health_check(self) -> bool:
-        """Check if MongoDB connection is healthy"""
+        """check if mongo is still working"""
         try:
             await self.client.admin.command('ping')
             return True
@@ -80,5 +80,5 @@ class MongoDBService:
             logger.error(f"MongoDB health check failed: {e}")
             return False
 
-# Global MongoDB service instance
+# single mongo service we use everywhere
 mongodb_service = MongoDBService()

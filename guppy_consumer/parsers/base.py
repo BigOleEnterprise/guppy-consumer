@@ -13,15 +13,15 @@ class BaseParser(ABC):
     
     @abstractmethod
     def can_parse(self, df: pd.DataFrame) -> bool:
-        """Check if this parser can handle the given DataFrame"""
+        """check if this parser knows how to handle this csv"""
         pass
     
     @abstractmethod
     def get_bank_type(self) -> BankType:
-        """Return the bank type this parser handles"""
+        """what bank does this parser work with"""
         pass
     
     @abstractmethod
     def parse_raw(self, df: pd.DataFrame) -> List[BaseModel]:
-        """Parse DataFrame to raw transaction Pydantic models"""
+        """turn the csv data into our pydantic models"""
         pass

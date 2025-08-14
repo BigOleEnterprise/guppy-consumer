@@ -14,12 +14,11 @@ admin_router = APIRouter(tags=["System Administration"])
 @admin_router.get("/system/info", summary="Get system information")
 async def get_system_info() -> Dict[str, Any]:
     """
-    Get comprehensive system information for monitoring and debugging.
-    
-    Returns system metrics, Python version, dependencies, and configuration.
+    get info about the system - cpu, memory, disk usage etc
+    useful for checking if everything is running ok
     """
     try:
-        # System metrics
+        # grab system stats
         cpu_percent = psutil.cpu_percent(interval=1)
         memory = psutil.virtual_memory()
         disk = psutil.disk_usage('/')
@@ -76,11 +75,11 @@ async def get_database_indexes() -> Dict[str, Any]:
         amex_indexes = []
         wells_indexes = []
         
-        # Get Amex collection indexes
+        # get amex collection indexes
         async for index in mongodb_service.amex_collection.list_indexes():
             amex_indexes.append(index)
             
-        # Get Wells Fargo collection indexes
+        # get wells fargo collection indexes too
         async for index in mongodb_service.wells_collection.list_indexes():
             wells_indexes.append(index)
         
@@ -114,7 +113,7 @@ async def rebuild_indexes() -> Dict[str, Any]:
     try:
         logger.info("Starting database index rebuild...")
         
-        # Rebuild indexes
+        # rebuild indexes
         await mongodb_service._create_indexes()
         
         logger.info("Database index rebuild completed")
@@ -131,5 +130,5 @@ async def rebuild_indexes() -> Dict[str, Any]:
             "error": str(e)
         }
 
-# Global variable to track application start time
+# track when the app started so we can show uptime
 start_time = time.time()

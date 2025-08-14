@@ -3,26 +3,26 @@ from typing import List, Union
 from ...models.raw import AmexRawTransaction, WellsRawTransaction
 
 class HashService:
-    """Service for generating transaction hashes for duplicate detection"""
+    """makes hashes for transactions so we can spot duplicates"""
     
     @staticmethod
     def generate_amex_hash(transaction: AmexRawTransaction) -> str:
-        """Generate hash for Amex transaction using key fields"""
-        # Use reference (unique transaction ID) + date + amount for Amex
+        """make a hash for amex transactions"""
+        # use reference + date + amount for amex
         composite_key = f"{transaction.date}|{transaction.amount}|{transaction.reference}"
         return hashlib.sha256(composite_key.encode('utf-8')).hexdigest()
     
     @staticmethod
     def generate_wells_hash(transaction: WellsRawTransaction) -> str:
-        """Generate hash for Wells Fargo transaction using key fields"""
-        # Use date + amount + description (no unique ID available)
+        """make a hash for wells transactions"""
+        # use date + amount + description (wells doesnt have unique ids)
         normalized_description = transaction.description.strip().lower() if transaction.description else ""
         composite_key = f"{transaction.date}|{transaction.amount}|{normalized_description}"
         return hashlib.sha256(composite_key.encode('utf-8')).hexdigest()
     
     @staticmethod
     def generate_hash(transaction: Union[AmexRawTransaction, WellsRawTransaction]) -> str:
-        """Generate appropriate hash based on transaction type"""
+        """figure out what kind of transaction and make the right hash"""
         if isinstance(transaction, AmexRawTransaction):
             return HashService.generate_amex_hash(transaction)
         elif isinstance(transaction, WellsRawTransaction):
@@ -34,7 +34,7 @@ class HashService:
     def add_hashes_to_transactions(
         transactions: List[Union[AmexRawTransaction, WellsRawTransaction]]
     ) -> List[Union[AmexRawTransaction, WellsRawTransaction]]:
-        """Add raw_hash field to all transactions"""
+        """add hash to every transaction in the list"""
         for transaction in transactions:
             hash_value = HashService.generate_hash(transaction)
             transaction.raw_hash = hash_value

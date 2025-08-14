@@ -9,7 +9,7 @@ from datetime import datetime
 logger = logging.getLogger(__name__)
 
 class InsertionResult(BaseModel):
-    """Result model for bulk insertion operations"""
+    """what we get back from bulk insert operations"""
     total_submitted: int
     total_inserted: int
     total_duplicates: int
@@ -19,7 +19,7 @@ class InsertionResult(BaseModel):
     processing_time_ms: int
 
 class RawInsertionService:
-    """Enterprise-grade service for bulk transaction insertion"""
+    """handles inserting lots of transactions at once"""
     
     def __init__(self, mongodb_service):
         self.mongodb_service = mongodb_service
@@ -31,8 +31,8 @@ class RawInsertionService:
         bank_type: str
     ) -> InsertionResult:
         """
-        Perform enterprise-grade bulk insertion with duplicate filtering,
-        error handling, and detailed reporting
+        insert a bunch of transactions with duplicate checking
+        and good error handling
         """
         start_time = datetime.utcnow()
         total_submitted = len(transactions)
@@ -40,7 +40,7 @@ class RawInsertionService:
         logger.info(f"Starting bulk insertion of {total_submitted} {bank_type} transactions")
         
         try:
-            # Step 1: Filter out duplicates using batch detection
+            # step 1: filter out duplicates using batch checking
             new_transactions = await self.duplicate_service.filter_duplicates(
                 transactions, bank_type
             )
@@ -57,10 +57,10 @@ class RawInsertionService:
                     processing_time_ms=self._get_processing_time(start_time)
                 )
             
-            # Step 2: Perform bulk insertion
+            # step 2: do the actual bulk insert
             insertion_result = await self._perform_bulk_insert(new_transactions, bank_type)
             
-            # Step 3: Compile final results
+            # step 3: put together the final results
             result = InsertionResult(
                 total_submitted=total_submitted,
                 total_inserted=insertion_result["inserted_count"],
@@ -94,15 +94,15 @@ class RawInsertionService:
         transactions: List[Union[AmexRawTransaction, WellsRawTransaction]], 
         bank_type: str
     ) -> Dict[str, Any]:
-        """Perform optimized bulk insertion with error handling"""
+        """do the actual bulk insert with error handling"""
         
         collection = self.mongodb_service.get_collection(bank_type)
         
-        # Convert Pydantic models to dictionaries for MongoDB
+        # turn pydantic objects into dicts for mongo
         documents = [transaction.dict() for transaction in transactions]
         
         try:
-            # Use ordered=False for better performance - continues on errors
+            # use ordered=False so it keeps going if some fail
             result = await collection.insert_many(documents, ordered=False)
             
             return {
@@ -114,7 +114,7 @@ class RawInsertionService:
             }
             
         except BulkWriteError as bwe:
-            # Handle partial success scenarios
+            # handle when some work but others dont
             return self._handle_bulk_write_error(bwe)
             
         except Exception as e:
@@ -128,23 +128,23 @@ class RawInsertionService:
             }
     
     def _handle_bulk_write_error(self, bwe: BulkWriteError) -> Dict[str, Any]:
-        """Handle partial failures in bulk operations"""
+        """deal with when some inserts work and others dont"""
         
-        # MongoDB bulk operations can partially succeed
+        # mongo bulk ops can partially work
         inserted_count = bwe.details.get("nInserted", 0)
         insert_ids = []
         
-        # Extract inserted IDs if available
+        # get the ids that actually got inserted
         if "insertedIds" in bwe.details:
             insert_ids = [str(id) for id in bwe.details["insertedIds"]]
         
-        # Categorize errors
+        # figure out what kind of errors we got
         duplicate_errors = 0
         other_errors = 0
         error_details = []
         
         for error in bwe.details.get("writeErrors", []):
-            if error.get("code") == 11000:  # Duplicate key error
+            if error.get("code") == 11000:  # duplicate key error
                 duplicate_errors += 1
             else:
                 other_errors += 1
@@ -168,12 +168,12 @@ class RawInsertionService:
         }
     
     def _get_processing_time(self, start_time: datetime) -> int:
-        """Calculate processing time in milliseconds"""
+        """figure out how long this took in milliseconds"""
         delta = datetime.utcnow() - start_time
         return int(delta.total_seconds() * 1000)
     
     async def get_collection_stats(self, bank_type: str) -> Dict[str, Any]:
-        """Get collection statistics for monitoring"""
+        """get stats about the collection for monitoring"""
         try:
             collection = self.mongodb_service.get_collection(bank_type)
             stats = await self.mongodb_service.database.command("collStats", collection.name)
